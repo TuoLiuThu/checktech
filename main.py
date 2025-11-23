@@ -2,7 +2,7 @@ import os
 import datetime
 import pytz
 import google.generativeai as genai
-import time
+from google.generativeai import protos # 关键：引入底层协议库
 
 # 1. 配置 API
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
@@ -16,22 +16,25 @@ generation_config = {
     "response_mime_type": "text/plain",
 }
 
-# 3. 初始化模型 (修复 Tool 参数)
-# 错误原因：google_search_retrieval 已改名为 google_search
-# 修复方法：使用字典列表格式 tools=[{"google_search": {}}]
+# 3. 初始化模型 (使用底层 Protos 修复工具调用)
 def get_model():
-    model_name = "gemini-2.5-flash" # 既然这个模型没有报404，我们就锁定它
+    # 既然 gemini-2.5-flash 之前没有报 404，说明模型存在，我们继续用它
+    model_name = "gemini-2.5-flash" 
     
     print(f"正在初始化模型: {model_name} ...")
     
+    # 【关键修复】
+    # 使用 protos.Tool 直接构建工具对象，避免字典被误判为函数定义
+    # 这是目前最稳妥的开启搜索的方法
+    search_tool = protos.Tool(
+        google_search=protos.GoogleSearch()
+    )
+
     try:
         model = genai.GenerativeModel(
             model_name=model_name,
             generation_config=generation_config,
-            # 【关键修改在这里】
-            # 旧写法: tools='google_search_retrieval' (报错 400)
-            # 新写法: 如下所示
-            tools=[{"google_search": {}}] 
+            tools=[search_tool] # 传入工具对象列表
         )
         return model, model_name
     except Exception as e:
@@ -39,15 +42,18 @@ def get_model():
         return None, None
 
 model, used_model_name = get_model()
-print(f"模型初始化完成: {used_model_name}")
 
 def get_beijing_time():
     tz = pytz.timezone('Asia/Shanghai')
     return datetime.datetime.now(tz).strftime('%Y年%m月%d日 %H:%M')
 
 def generate_report():
+    if not model:
+        return "<html><body><h1>初始化失败</h1><p>无法连接到模型</p></body></html>"
+
     current_time = get_beijing_time()
     print(f"开始生成日报，当前时间: {current_time}")
+    print(f"使用模型: {used_model_name}")
 
     prompt = f"""
     Current Time (Beijing): {current_time}
@@ -76,7 +82,6 @@ def generate_report():
     """
     
     try:
-        # 这里的 request_options 可能需要处理，但通常 SDK 会自动处理
         response = model.generate_content(prompt)
         html_content = response.text
         # 清理 Markdown 标记
@@ -87,10 +92,8 @@ def generate_report():
         return f"<html><body><h1>生成失败</h1><p>错误信息: {e}</p><p>模型: {used_model_name}</p></body></html>"
 
 if __name__ == "__main__":
-    if model:
-        html = generate_report()
-        with open("index.html", "w", encoding="utf-8") as f:
-            f.write(html)
-        print("Report generated successfully.")
-    else:
-        print("模型初始化失败，无法生成。")
+    html = generate_report()
+    # 无论成功失败，都写入文件，方便在网页查看错误信息
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(html)
+    print("Process finished.")
