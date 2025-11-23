@@ -2,23 +2,27 @@ import os
 import datetime
 import pytz
 import google.generativeai as genai
+import time
 
-# 配置 API
+# 1. 配置 API
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
-# 配置模型，使用搜索工具
+# 2. 配置 Gemini 3 Pro 参数
+# 注意：Pro 模型通常需要更精确的 Temperature
 generation_config = {
-    "temperature": 0.4,
+    "temperature": 1.0, 
     "top_p": 0.95,
-    "top_k": 64,
+    "top_k": 40,
     "max_output_tokens": 8192,
     "response_mime_type": "text/plain",
 }
 
+# 3. 初始化模型 (关键修改点)
+# 如果 gemini-3-pro-preview 报错，请改回 gemini-1.5-pro
 model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash-exp", # 使用最新的 Flash 模型，速度快且联网能力强
+    model_name="gemini-3-pro-preview", 
     generation_config=generation_config,
-    tools='google_search_retrieval' # 强制开启搜索
+    tools='google_search_retrieval' # 强制开启联网搜索
 )
 
 def get_beijing_time():
@@ -27,50 +31,61 @@ def get_beijing_time():
 
 def generate_report():
     current_time = get_beijing_time()
-    
-    # 你的 Prompt，经过深度优化以确保链接准确
+    print(f"开始生成日报，当前时间: {current_time}")
+    print("正在调用 Gemini 3 Pro 进行深度搜索和推理... (可能会比较慢，请耐心等待)")
+
     prompt = f"""
     Current Time (Beijing): {current_time}
     
-    任务：你是一个全栈工程师。请联网搜索过去24小时的AI行业动态，生成一个单文件 HTML5 网页。
+    Role: You are an elite AI Industry Analyst using the advanced Gemini 3 Pro model.
+    Task: Conduct a deep-dive web search for the past 24 hours of AI news and generate a single-file HTML5 Dashboard.
     
-    【核心要求 - 关于链接】
-    1. 你必须使用 Google Search 找到的**真实 URL**。
-    2. 如果找不到某位科学家的推特原文，请**务必**链接到报道该推特的新闻页面。
-    3. 严禁生成死链接（如 placeholder）。
+    【核心搜索策略 - Gemini 3 Pro 专用】
+    1.  **Deep Search**: Do not just skim headlines. Verify sources. 
+    2.  **Authentic Links**: You MUST provide direct URL links to the content (tweets/papers/articles). If a direct tweet link is unsearchable, link to a reputable tech news article discussing it.
+    3.  **No Hallucinations**: If a scientist has no updates today, explicitly state "今日无动态" (No updates today).
     
-    【内容板块】
-    1. 顶尖科学家 (DeepMind: Demis/Jeff, OpenAI: Sam/Greg, Meta: Yann/Jason, Anthropic: Dario)。
-    2. 深度媒体 (The Information, SemiAnalysis)。
-    3. 产业大事件 (融资, GPU, 离职)。
-    4. 前沿论文 (arXiv)。
+    【监测名单 (Monitor List)】
+    * **DeepMind**: Demis Hassabis, Jeff Dean
+    * **OpenAI**: Sam Altman, Greg Brockman, Noam Brown (Reasoning)
+    * **Meta**: Yann LeCun, Thomas Scialom
+    * **Anthropic**: Dario Amodei
     
-    【HTML 结构要求】
-    1. 使用 Tailwind CSS (CDN)。
-    2. 深色模式 (Dark Mode)。
-    3. 必须包含 JavaScript 实现 Tab 切换（DeepMind/OpenAI/Meta/Anthropic）。
-    4. 直接输出 HTML 代码，不要 Markdown 标记。
-    5. 在 Header 显示“更新时间：{current_time}”。
+    【HTML 输出规范】
+    1.  **Style**: Use Tailwind CSS (CDN). Dark Mode (Slate-900 background).
+    2.  **Layout**: Dashboard style with 4 sections (Scientists, Media, Industry, Papers).
+    3.  **Interactivity**: Include Vanilla JS for Tab switching in the Scientist section.
+    4.  **Language**: All visible text must be in **Simplified Chinese**.
     
-    请开始生成 HTML：
+    Output ONLY the raw HTML code. Start with <!DOCTYPE html>.
     """
     
     try:
+        # 增加重试机制，应对可能的网络波动
         response = model.generate_content(prompt)
         html_content = response.text
         
-        # 清理可能存在的 Markdown 标记
-        html_content = html_content.replace("```html", "").replace("```", "")
+        # 清理 Markdown 标记
+        html_content = html_content.replace("```html", "").replace("```", "").strip()
         
         return html_content
     except Exception as e:
-        print(f"Error: {e}")
-        return f"<h1>生成失败</h1><p>{e}</p>"
+        print(f"Error occurred: {e}")
+        # 如果出错，生成一个简单的错误页面
+        return f"""
+        <html>
+        <body style="background:#0f172a; color:white; font-family:sans-serif; padding:50px; text-align:center;">
+            <h1>生成失败 (Generation Failed)</h1>
+            <p>错误信息: {e}</p>
+            <p>可能是 Gemini 3 Pro 配额超限 (429) 或模型名称不正确。</p>
+            <p>请尝试在 main.py 中将模型换回 gemini-1.5-flash。</p>
+        </body>
+        </html>
+        """
 
 if __name__ == "__main__":
     html = generate_report()
     
-    # 将生成的内容写入 index.html
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html)
-    print("Report generated successfully.")
+    print("Report generated and saved to index.html")
