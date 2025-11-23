@@ -2,7 +2,6 @@ name: Daily AI Report Update
 
 on:
   schedule:
-    # 北京时间 00:00 (UTC 16:00)
     - cron: '0 16 * * *'
   workflow_dispatch:
 
@@ -37,5 +36,4 @@ jobs:
         git config --global user.name 'GitHub Action'
         git config --global user.email 'action@github.com'
         git add index.html
-        # 只有当文件发生变化时才提交，防止空提交报错
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update report (Gemini 3 Pro)" && git push)
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update report" && git push)
