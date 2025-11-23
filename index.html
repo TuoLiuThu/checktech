@@ -1,44 +1,9 @@
 
         <html>
-        <body style="background:#0f172a; color:white; font-family:sans-serif; padding:50px; text-align:center;">
-            <h1>生成失败 (Generation Failed)</h1>
-            <p>错误信息: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/usage?tab=rate-limit. 
-* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3-pro
-* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3-pro
-Please retry in 58.98151393s. [links {
-  description: "Learn more about Gemini API quotas"
-  url: "https://ai.google.dev/gemini-api/docs/rate-limits"
-}
-, violations {
-  quota_metric: "generativelanguage.googleapis.com/generate_content_free_tier_requests"
-  quota_id: "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"
-  quota_dimensions {
-    key: "model"
-    value: "gemini-3-pro"
-  }
-  quota_dimensions {
-    key: "location"
-    value: "global"
-  }
-}
-violations {
-  quota_metric: "generativelanguage.googleapis.com/generate_content_free_tier_requests"
-  quota_id: "GenerateRequestsPerDayPerProjectPerModel-FreeTier"
-  quota_dimensions {
-    key: "model"
-    value: "gemini-3-pro"
-  }
-  quota_dimensions {
-    key: "location"
-    value: "global"
-  }
-}
-, retry_delay {
-  seconds: 58
-}
-]</p>
-            <p>可能是 Gemini 3 Pro 配额超限 (429) 或模型名称不正确。</p>
-            <p>请尝试在 main.py 中将模型换回 gemini-1.5-flash。</p>
+        <body style="background:#0f172a; color:white; padding:50px; text-align:center;">
+            <h1>生成遇到问题</h1>
+            <p>错误信息: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.</p>
+            <p>请检查 GitHub Secrets 中的 API Key 是否正确。</p>
         </body>
         </html>
         
