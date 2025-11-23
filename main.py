@@ -7,20 +7,20 @@ import time
 # 1. 配置 API
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
-# 2. 配置 Gemini 3 Pro 参数
-# 注意：Pro 模型通常需要更精确的 Temperature
+# 2. 配置参数 (针对 Flash 模型优化)
+# Flash 模型不需要过高的 Temperature，0.7 较为平衡
 generation_config = {
-    "temperature": 1.0, 
+    "temperature": 0.7,
     "top_p": 0.95,
     "top_k": 40,
     "max_output_tokens": 8192,
     "response_mime_type": "text/plain",
 }
 
-# 3. 初始化模型 (关键修改点)
-# 如果 gemini-3-pro-preview 报错，请改回 gemini-1.5-pro
+# 3. 初始化模型 (关键：使用免费且稳定的 Flash 模型)
+# gemini-1.5-flash 拥有每日 1500 次的免费额度，且支持搜索
 model = genai.GenerativeModel(
-    model_name="gemini-3-pro-preview", 
+    model_name="gemini-1.5-flash",
     generation_config=generation_config,
     tools='google_search_retrieval' # 强制开启联网搜索
 )
@@ -32,36 +32,36 @@ def get_beijing_time():
 def generate_report():
     current_time = get_beijing_time()
     print(f"开始生成日报，当前时间: {current_time}")
-    print("正在调用 Gemini 3 Pro 进行深度搜索和推理... (可能会比较慢，请耐心等待)")
+    print("正在调用 Gemini 1.5 Flash 进行联网搜索... (免费版)")
 
+    # 为了保证 Flash 模型也能输出高质量内容，Prompt 需要更加具体
     prompt = f"""
     Current Time (Beijing): {current_time}
     
-    Role: You are an elite AI Industry Analyst using the advanced Gemini 3 Pro model.
-    Task: Conduct a deep-dive web search for the past 24 hours of AI news and generate a single-file HTML5 Dashboard.
+    Role: You are an expert AI Analyst.
+    Task: Search the web for AI news in the past 24 hours and generate a single-file HTML5 Dashboard.
     
-    【核心搜索策略 - Gemini 3 Pro 专用】
-    1.  **Deep Search**: Do not just skim headlines. Verify sources. 
-    2.  **Authentic Links**: You MUST provide direct URL links to the content (tweets/papers/articles). If a direct tweet link is unsearchable, link to a reputable tech news article discussing it.
-    3.  **No Hallucinations**: If a scientist has no updates today, explicitly state "今日无动态" (No updates today).
+    【关键要求 - 请严格执行】
+    1.  **真实链接**: 必须提供 Search Tool 找到的真实 URL。不要编造链接。
+    2.  **替代策略**: 如果搜不到某位科学家的推特，请搜索报道了该推特的新闻文章并链接到新闻。
+    3.  **空状态**: 如果某人无动态，必须显示 "今日无动态"，不要过滤掉他。
     
-    【监测名单 (Monitor List)】
-    * **DeepMind**: Demis Hassabis, Jeff Dean
-    * **OpenAI**: Sam Altman, Greg Brockman, Noam Brown (Reasoning)
-    * **Meta**: Yann LeCun, Thomas Scialom
-    * **Anthropic**: Dario Amodei
+    【监测名单】
+    * DeepMind: Demis Hassabis, Jeff Dean
+    * OpenAI: Sam Altman, Greg Brockman, Noam Brown
+    * Meta: Yann LeCun, Thomas Scialom
+    * Anthropic: Dario Amodei
     
     【HTML 输出规范】
-    1.  **Style**: Use Tailwind CSS (CDN). Dark Mode (Slate-900 background).
-    2.  **Layout**: Dashboard style with 4 sections (Scientists, Media, Industry, Papers).
-    3.  **Interactivity**: Include Vanilla JS for Tab switching in the Scientist section.
-    4.  **Language**: All visible text must be in **Simplified Chinese**.
+    1.  使用 Tailwind CSS (通过 CDN)。
+    2.  深色模式 (Dark Mode, Slate-900)。
+    3.  包含 JavaScript 实现 Scientist 板块的 Tab 切换功能。
+    4.  所有可见文字必须是**简体中文**。
     
     Output ONLY the raw HTML code. Start with <!DOCTYPE html>.
     """
     
     try:
-        # 增加重试机制，应对可能的网络波动
         response = model.generate_content(prompt)
         html_content = response.text
         
@@ -71,14 +71,13 @@ def generate_report():
         return html_content
     except Exception as e:
         print(f"Error occurred: {e}")
-        # 如果出错，生成一个简单的错误页面
+        # 错误处理页面
         return f"""
         <html>
-        <body style="background:#0f172a; color:white; font-family:sans-serif; padding:50px; text-align:center;">
-            <h1>生成失败 (Generation Failed)</h1>
+        <body style="background:#0f172a; color:white; padding:50px; text-align:center;">
+            <h1>生成遇到问题</h1>
             <p>错误信息: {e}</p>
-            <p>可能是 Gemini 3 Pro 配额超限 (429) 或模型名称不正确。</p>
-            <p>请尝试在 main.py 中将模型换回 gemini-1.5-flash。</p>
+            <p>请检查 GitHub Secrets 中的 API Key 是否正确。</p>
         </body>
         </html>
         """
