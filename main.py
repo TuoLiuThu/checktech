@@ -20,7 +20,7 @@ generation_config = {
 # 使用 gemini-1.5-flash-latest 可以自动指向当前可用的 Flash 版本
 # 这是一个免费且支持联网的模型
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash-latest", 
+    model_name="gemini-1.5-flash-002", 
     generation_config=generation_config,
     tools='google_search_retrieval'
 )
