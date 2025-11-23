@@ -16,33 +16,30 @@ generation_config = {
     "response_mime_type": "text/plain",
 }
 
-# 3. 初始化模型 (使用最新的 Flash 2.5)
-# 依据 2025 年 11 月状态，gemini-1.5-flash 已弃用，必须使用 2.5 或 2.0
+# 3. 初始化模型 (修复 Tool 参数)
+# 错误原因：google_search_retrieval 已改名为 google_search
+# 修复方法：使用字典列表格式 tools=[{"google_search": {}}]
 def get_model():
-    # 优先尝试 2.5 Flash (最新活跃版)
-    model_names = [
-        "gemini-2.5-flash", 
-        "gemini-2.0-flash", 
-        "gemini-1.5-flash-002" # 最后尝试具体的旧版本号
-    ]
+    model_name = "gemini-2.5-flash" # 既然这个模型没有报404，我们就锁定它
     
-    for name in model_names:
-        try:
-            print(f"尝试连接模型: {name} ...")
-            model = genai.GenerativeModel(
-                model_name=name,
-                generation_config=generation_config,
-                tools='google_search_retrieval'
-            )
-            return model, name
-        except Exception as e:
-            print(f"模型 {name} 不可用，尝试下一个...")
-            continue
-    # 如果都失败，强制返回一个默认值让主程序报错
-    return genai.GenerativeModel("gemini-2.5-flash"), "gemini-2.5-flash"
+    print(f"正在初始化模型: {model_name} ...")
+    
+    try:
+        model = genai.GenerativeModel(
+            model_name=model_name,
+            generation_config=generation_config,
+            # 【关键修改在这里】
+            # 旧写法: tools='google_search_retrieval' (报错 400)
+            # 新写法: 如下所示
+            tools=[{"google_search": {}}] 
+        )
+        return model, model_name
+    except Exception as e:
+        print(f"初始化出错: {e}")
+        return None, None
 
 model, used_model_name = get_model()
-print(f"成功锁定模型: {used_model_name}")
+print(f"模型初始化完成: {used_model_name}")
 
 def get_beijing_time():
     tz = pytz.timezone('Asia/Shanghai')
@@ -58,7 +55,7 @@ def generate_report():
     Role: You are an expert AI Analyst.
     Task: Search the web for AI news in the past 24 hours and generate a single-file HTML5 Dashboard.
     
-    【核心要求 - 保持不变】
+    【核心要求】
     1.  **真实链接**: 必须提供 Search Tool 找到的真实 URL。
     2.  **替代策略**: 如果搜不到某位科学家的推特，请搜索报道了该推特的新闻文章。
     3.  **空状态**: 如果某人无动态，必须显示 "今日无动态"。
@@ -79,6 +76,7 @@ def generate_report():
     """
     
     try:
+        # 这里的 request_options 可能需要处理，但通常 SDK 会自动处理
         response = model.generate_content(prompt)
         html_content = response.text
         # 清理 Markdown 标记
@@ -86,10 +84,13 @@ def generate_report():
         return html_content
     except Exception as e:
         print(f"Error occurred: {e}")
-        return f"<html><body><h1>生成失败</h1><p>错误信息: {e}</p><p>当前尝试模型: {used_model_name}</p></body></html>"
+        return f"<html><body><h1>生成失败</h1><p>错误信息: {e}</p><p>模型: {used_model_name}</p></body></html>"
 
 if __name__ == "__main__":
-    html = generate_report()
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(html)
-    print("Report generated successfully.")
+    if model:
+        html = generate_report()
+        with open("index.html", "w", encoding="utf-8") as f:
+            f.write(html)
+        print("Report generated successfully.")
+    else:
+        print("模型初始化失败，无法生成。")
