@@ -16,14 +16,33 @@ generation_config = {
     "response_mime_type": "text/plain",
 }
 
-# 3. 初始化模型 (关键修改)
-# 使用 gemini-1.5-flash-latest 可以自动指向当前可用的 Flash 版本
-# 这是一个免费且支持联网的模型
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash-002", 
-    generation_config=generation_config,
-    tools='google_search_retrieval'
-)
+# 3. 初始化模型 (使用最新的 Flash 2.5)
+# 依据 2025 年 11 月状态，gemini-1.5-flash 已弃用，必须使用 2.5 或 2.0
+def get_model():
+    # 优先尝试 2.5 Flash (最新活跃版)
+    model_names = [
+        "gemini-2.5-flash", 
+        "gemini-2.0-flash", 
+        "gemini-1.5-flash-002" # 最后尝试具体的旧版本号
+    ]
+    
+    for name in model_names:
+        try:
+            print(f"尝试连接模型: {name} ...")
+            model = genai.GenerativeModel(
+                model_name=name,
+                generation_config=generation_config,
+                tools='google_search_retrieval'
+            )
+            return model, name
+        except Exception as e:
+            print(f"模型 {name} 不可用，尝试下一个...")
+            continue
+    # 如果都失败，强制返回一个默认值让主程序报错
+    return genai.GenerativeModel("gemini-2.5-flash"), "gemini-2.5-flash"
+
+model, used_model_name = get_model()
+print(f"成功锁定模型: {used_model_name}")
 
 def get_beijing_time():
     tz = pytz.timezone('Asia/Shanghai')
@@ -32,7 +51,6 @@ def get_beijing_time():
 def generate_report():
     current_time = get_beijing_time()
     print(f"开始生成日报，当前时间: {current_time}")
-    print("正在调用 Gemini 1.5 Flash (Latest) 进行联网搜索...")
 
     prompt = f"""
     Current Time (Beijing): {current_time}
@@ -40,7 +58,7 @@ def generate_report():
     Role: You are an expert AI Analyst.
     Task: Search the web for AI news in the past 24 hours and generate a single-file HTML5 Dashboard.
     
-    【关键要求】
+    【核心要求 - 保持不变】
     1.  **真实链接**: 必须提供 Search Tool 找到的真实 URL。
     2.  **替代策略**: 如果搜不到某位科学家的推特，请搜索报道了该推特的新闻文章。
     3.  **空状态**: 如果某人无动态，必须显示 "今日无动态"。
@@ -68,7 +86,7 @@ def generate_report():
         return html_content
     except Exception as e:
         print(f"Error occurred: {e}")
-        return f"<html><body><h1>生成失败</h1><p>{e}</p></body></html>"
+        return f"<html><body><h1>生成失败</h1><p>错误信息: {e}</p><p>当前尝试模型: {used_model_name}</p></body></html>"
 
 if __name__ == "__main__":
     html = generate_report()
